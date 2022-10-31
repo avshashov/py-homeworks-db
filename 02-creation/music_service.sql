@@ -35,7 +35,7 @@ CREATE TABLE tracks (
     track_id SERIAL PRIMARY KEY,
     track_name VARCHAR(30) NOT NULL,
     album_id INTEGER REFERENCES albums(album_id),
-    duration INTEGER 
+    duration TIME 
     );
 
 
