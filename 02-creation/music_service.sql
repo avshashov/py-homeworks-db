@@ -42,8 +42,15 @@ CREATE TABLE tracks (
 CREATE TABLE music_collections (
     id SERIAL PRIMARY KEY,
     collection_name VARCHAR(30) NOT NULL,
-    release_date DATE,
+    release_date DATE
+    );
+
+
+CREATE TABLE collection_tracks (
+    id SERIAL PRIMARY KEY,
+    collection_id INTEGER REFERENCES music_collections(id),
     track_id INTEGER REFERENCES tracks(track_id)
     );
+
 
 

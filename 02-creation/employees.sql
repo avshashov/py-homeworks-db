@@ -5,15 +5,11 @@ CREATE TABLE departments (
     director_id INTEGER
     );
     
-CREATE TABLE directors (
-    id SERIAL PRIMARY KEY,
-    director_name VARCHAR(60) UNIQUE NOT NULL,
-    department_id INTEGER REFERENCES departments(department_id)
-    );
     
 CREATE TABLE employees ( 
     id SERIAL PRIMARY KEY, 
     employee_name VARCHAR(60) UNIQUE NOT NULL,
     department_id INTEGER REFERENCES departments(department_id),
-    director_id INTEGER REFERENCES directors(id)
+    director_id INTEGER REFERENCES employees(id),
+    director_name VARCHAR(60) NOT NULL
     );
