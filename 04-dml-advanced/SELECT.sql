@@ -10,7 +10,7 @@ FROM tracks
 WHERE EXTRACT(YEAR FROM release_date) IN (2019, 2020);
 
 
-SELECT album_name, TO_CHAR(AVG(duration), 'MI:SS')
+SELECT album_name, TO_CHAR(AVG(duration), 'MI:SS') AS avg_duration
 FROM tracks
          JOIN albums USING (album_id)
 GROUP BY album_name;
