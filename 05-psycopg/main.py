@@ -2,12 +2,19 @@ import psycopg2
 from psycopg2 import sql
 
 
+def del_tables(connect):
+    with connect:
+        with connect.cursor() as cur:
+            cur.execute("DROP TABLE clients CASCADE")
+            cur.execute("DROP TABLE phone_numbers CASCADE")
+
+
 def create_tables(connect):
     try:
         with connect.cursor() as cur:
             cur.execute("""
                         CREATE TABLE IF NOT EXISTS clients (
-                        id SERIAL PRIMARY KEY, 
+                        client_id SERIAL PRIMARY KEY, 
                         client_name VARCHAR(30) NOT NULL,
                         surname VARCHAR(30) NOT NULL,
                         email VARCHAR(30) NOT NULL UNIQUE
@@ -17,8 +24,8 @@ def create_tables(connect):
             cur.execute("""
                         CREATE TABLE IF NOT EXISTS phone_numbers (
                         id SERIAL PRIMARY KEY,
-                        phone_number VARCHAR(12) DEFAULT NULL,
-                        client_id INT REFERENCES clients(id) ON DELETE CASCADE
+                        client_id INT REFERENCES clients(client_id) ON DELETE CASCADE,
+                        phone_number VARCHAR(12) DEFAULT NULL
                         );
             """)
 
@@ -42,7 +49,7 @@ def add_new_client(connect, name, surname, email, number=None):
             """, (name, surname, email))
 
             cur.execute("""
-                        SELECT id FROM clients
+                        SELECT client_id FROM clients
                         WHERE client_name = %s AND surname = %s;
             """, (name, surname))
             client_id = cur.fetchone()[0]
@@ -63,22 +70,16 @@ def add_new_client(connect, name, surname, email, number=None):
             connect.close()
 
 
-def add_phone_number(connect, name, surname, number):
+def add_phone_number(connect, client_id, number):
     try:
         with connect.cursor() as cur:
             cur.execute("""
-                        SELECT id FROM clients
-                        WHERE client_name = %s AND surname = %s;
-                        """, (name, surname))
-            client_id = cur.fetchone()[0]
-
-            cur.execute("""
-                        INSERT INTO phone_numbers (phone_number, client_id)
+                        INSERT INTO phone_numbers (client_id, phone_number)
                         VALUES (%s, %s);
-                        """, (number, client_id))
+                        """, (client_id, number))
 
             connect.commit()
-            print(f'[INFO] Клиенту {name} {surname} добавлен новый номер.')
+            print(f'[INFO] Номер телефона добавлен в базу данных.')
 
 
     except Exception as ex:
@@ -88,25 +89,35 @@ def add_phone_number(connect, name, surname, number):
             connect.close()
 
 
-def change_client_data(connect, name, surname, email, number):
-    new_data = input('''Введите через пробел новые данные в следующем порядке: 
-    Имя Фамилия email Телефон''').split()
+def change_client_data(connect, client_id, client_name=None, surname=None, email=None, number=None):
+    # params = [name, surname, email]
+    data = {
+        'client_name': client_name,
+        'surname': surname,
+        'email': email
+        # 'phone_number': number
+    }
 
     try:
         with connect.cursor() as cur:
-            cur.execute("""
-                        UPDATE clients
-                        SET client_name = %s,
-                            surname = %s,
-                            email = %s
-                        WHERE email = %s 
-            ;""", (*new_data[:3], email))
+            for key, value in data.items():
+                if value:
+                    cur.execute(sql.SQL("""
+                                UPDATE clients
+                                SET {} = %s
+                                    -- # surname = %s,
+                                    -- # email = %s
+                                -- WHERE client_id = %s
+                                WHERE client_id = 3;
+                    """).format(sql.Identifier(key)), (value,))
+                    # ;""").format(sql.Identifier(key)), (value, client_id))
 
-            cur.execute("""
-                        UPDATE phone_numbers
-                        SET phone_number = %s
-                        WHERE phone_number = %s
-                ;""", (new_data[3], number))
+            if number:
+                cur.execute("""
+                            UPDATE phone_numbers
+                            SET phone_number = %s
+                            WHERE client_id = %s
+                    ;""", (number, client_id))
 
             connect.commit()
             print(f'[INFO] Данные изменены.')
@@ -118,13 +129,13 @@ def change_client_data(connect, name, surname, email, number):
             connect.close()
 
 
-def del_phone_number(connect, number):
+def del_phone_number(connect, client_id, number):
     try:
         with connect.cursor() as cur:
             cur.execute("""
                         DELETE FROM phone_numbers
-                        WHERE phone_number = %s;
-            """, (number,))
+                        WHERE client_id = %s AND phone_number = %s;
+            """, (client_id, number))
 
             connect.commit()
             print(f'[INFO] Номер удален.')
@@ -136,13 +147,13 @@ def del_phone_number(connect, number):
             connect.close()
 
 
-def del_client(connect, name, surname, email):
+def del_client(connect, client_id):
     try:
         with connect.cursor() as cur:
             cur.execute("""
                         DELETE FROM clients
-                        WHERE email = %s;
-            """, (email,))
+                        WHERE client_id = %s;
+            """, (client_id,))
             connect.commit()
             print(f'[INFO] Клиент удален из базы.')
 
@@ -153,22 +164,26 @@ def del_client(connect, name, surname, email):
             connect.close()
 
 
-def search_client(connect, data):
-    params = {'Имя': 'client_name', 'Фамилия': 'surname',
-              'Email': 'email', 'Телефон': 'phone_number'}
-
-    param = input('Выберите параметр поиска: Имя, Фамилия, Email, Телефон: ')
+def search_client(connect, client_name=None, surname=None, email=None, number=None):
+    data = {
+        'client_name': client_name,
+        'surname': surname,
+        'email': email,
+        'phone_number': number
+    }
 
     try:
         with connect.cursor() as cur:
-            cur.execute(sql.SQL("""
-                        SELECT client_name, surname, email, phone_number 
-                        FROM clients c
-                            JOIN phone_numbers p ON c.id = p.client_id
-                        WHERE {} = %s;
-            """).format(sql.Identifier(params[param])), (data,))
-            res = cur.fetchall()
-            print(f'Результаты поиска:\n{res}' if len(res) != 0 else 'Клиент не найден.')
+            for key, value in data.items():
+                if value:
+                    cur.execute(sql.SQL("""
+                            SELECT client_name, surname, email, phone_number 
+                            FROM clients
+                                JOIN phone_numbers USING(client_id)
+                            WHERE {} = %s;
+                """).format(sql.Identifier(key)), (value,))
+                    res = cur.fetchall()
+                    print(f'Результаты поиска:\n{res}' if len(res) != 0 else 'Клиент не найден.')
 
     except Exception as ex:
         print(f'[Error] {ex}')
@@ -177,18 +192,18 @@ def search_client(connect, data):
             connect.close()
 
 
-conn = psycopg2.connect(database='personal_data', user='postgres', password='1234')
+conn = psycopg2.connect(database='personal_data', user='', password='')
 
-# with conn:
-#     with conn.cursor() as cur:
-#         cur.execute("DROP TABLE clients CASCADE")
-#         cur.execute("DROP TABLE phone_numbers CASCADE")
+# del_tables(conn)
 # create_tables(conn)
 
 # add_new_client(conn, 'Ivan', 'Ivanov', 'ivanov@gmail.com', '89091324321')
+# add_new_client(conn, 'Vladimir', 'Ivanov', 'vl@gmail.com')
 # add_new_client(conn, 'Petr', 'Petrov', 'petrov@gmail.com')
-# add_phone_number(conn, 'Petr', 'Petrov', '89241724365')
-# change_client_data(conn, 'Petr', 'Petrov', 'petrov@gmail.com', '89241724365')
-# del_phone_number(conn, '+79146351212')
-# del_client(conn, 'Petr', 'Petrov', 'petroff@gmail.com')
-# search_client(conn, 'Ivan')
+# add_phone_number(conn, 2, '89241724365')
+# change_client_data(conn, 2, 'Petya', 'Petrov', 'petrov@gmail.com')
+change_client_data(conn, 3, 'Petya', 'Petrov', number='123456')
+# change_client_data(conn, 3, 'Petya', 'Petrov')
+# del_phone_number(conn, 2, '89241724365')
+# del_client(conn, 2)
+# search_client(conn, surname='Ivanov')
