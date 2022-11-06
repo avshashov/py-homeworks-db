@@ -74,9 +74,25 @@ def add_phone_number(connect, client_id, number):
     try:
         with connect.cursor() as cur:
             cur.execute("""
-                        INSERT INTO phone_numbers (client_id, phone_number)
-                        VALUES (%s, %s);
-                        """, (client_id, number))
+                        SELECT COUNT(client_id)
+                        FROM phone_numbers
+                        WHERE client_id = %s AND phone_number IS NULL;
+                    """, (client_id,))
+
+            null_number = cur.fetchone()[0]
+
+            if null_number == 0:
+                cur.execute("""
+                            INSERT INTO phone_numbers (client_id, phone_number)
+                            VALUES (%s, %s);
+                            """, (client_id, number))
+
+            if null_number == 1:
+                cur.execute("""
+                            UPDATE  phone_numbers
+                            SET phone_number = %s
+                            WHERE client_id = %s AND phone_number IS NULL;
+                        """, (number, client_id))
 
             connect.commit()
             print(f'[INFO] Номер телефона добавлен в базу данных.')
@@ -90,12 +106,10 @@ def add_phone_number(connect, client_id, number):
 
 
 def change_client_data(connect, client_id, client_name=None, surname=None, email=None, number=None):
-    # params = [name, surname, email]
     data = {
         'client_name': client_name,
         'surname': surname,
         'email': email
-        # 'phone_number': number
     }
 
     try:
@@ -103,15 +117,10 @@ def change_client_data(connect, client_id, client_name=None, surname=None, email
             for key, value in data.items():
                 if value:
                     cur.execute(sql.SQL("""
-                                UPDATE clients
-                                SET {} = %s
-                                    -- # surname = %s,
-                                    -- # email = %s
-                                -- WHERE client_id = %s
-                                WHERE client_id = 3;
-                    """).format(sql.Identifier(key)), (value,))
-                    # ;""").format(sql.Identifier(key)), (value, client_id))
-
+                                           UPDATE clients
+                                           SET {} = %s
+                                           WHERE client_id = %s;
+                                         """).format(sql.Identifier(key)), (value, client_id))
             if number:
                 cur.execute("""
                             UPDATE phone_numbers
@@ -199,11 +208,10 @@ conn = psycopg2.connect(database='personal_data', user='', password='')
 
 # add_new_client(conn, 'Ivan', 'Ivanov', 'ivanov@gmail.com', '89091324321')
 # add_new_client(conn, 'Vladimir', 'Ivanov', 'vl@gmail.com')
-# add_new_client(conn, 'Petr', 'Petrov', 'petrov@gmail.com')
-# add_phone_number(conn, 2, '89241724365')
-# change_client_data(conn, 2, 'Petya', 'Petrov', 'petrov@gmail.com')
-change_client_data(conn, 3, 'Petya', 'Petrov', number='123456')
-# change_client_data(conn, 3, 'Petya', 'Petrov')
-# del_phone_number(conn, 2, '89241724365')
+# add_new_client(conn, 'Petr', 'Petrov', 'petrov@gmail.com', '+79991112233')
+# add_phone_number(conn, 2, '89245553535')
+# change_client_data(conn, 3, 'Petya', 'Petroff', 'petroff@gmail.com')
+# change_client_data(conn, 3, 'Petr', 'Petrov', number='123456')
+# del_phone_number(conn, 3, '123456')
 # del_client(conn, 2)
 # search_client(conn, surname='Ivanov')
