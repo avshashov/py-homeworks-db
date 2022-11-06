@@ -1,4 +1,5 @@
 import psycopg2
+from psycopg2 import sql
 
 
 def create_tables(connect):
@@ -17,7 +18,7 @@ def create_tables(connect):
                         CREATE TABLE IF NOT EXISTS phone_numbers (
                         id SERIAL PRIMARY KEY,
                         phone_number VARCHAR(12) DEFAULT NULL,
-                        client_id INT REFERENCES clients(id)
+                        client_id INT REFERENCES clients(id) ON DELETE CASCADE
                         );
             """)
 
@@ -117,11 +118,66 @@ def change_client_data(connect, name, surname, email, number):
             connect.close()
 
 
+def del_phone_number(connect, number):
+    try:
+        with connect.cursor() as cur:
+            cur.execute("""
+                        DELETE FROM phone_numbers
+                        WHERE phone_number = %s;
+            """, (number,))
+
+            connect.commit()
+            print(f'[INFO] Номер удален.')
+
+    except Exception as ex:
+        print(f'[Error] {ex}')
+    finally:
+        if connect:
+            connect.close()
+
+
+def del_client(connect, name, surname, email):
+    try:
+        with connect.cursor() as cur:
+            cur.execute("""
+                        DELETE FROM clients
+                        WHERE email = %s;
+            """, (email,))
+            connect.commit()
+            print(f'[INFO] Клиент удален из базы.')
+
+    except Exception as ex:
+        print(f'[Error] {ex}')
+    finally:
+        if connect:
+            connect.close()
+
+
+def search_client(connect, data):
+    params = {'Имя': 'client_name', 'Фамилия': 'surname',
+              'Email': 'email', 'Телефон': 'phone_number'}
+
+    param = input('Выберите параметр поиска: Имя, Фамилия, Email, Телефон: ')
+
+    try:
+        with connect.cursor() as cur:
+            cur.execute(sql.SQL("""
+                        SELECT client_name, surname, email, phone_number 
+                        FROM clients c
+                            JOIN phone_numbers p ON c.id = p.client_id
+                        WHERE {} = %s;
+            """).format(sql.Identifier(params[param])), (data,))
+            res = cur.fetchall()
+            print(f'Результаты поиска:\n{res}' if len(res) != 0 else 'Клиент не найден.')
+
+    except Exception as ex:
+        print(f'[Error] {ex}')
+    finally:
+        if connect:
+            connect.close()
+
+
 conn = psycopg2.connect(database='personal_data', user='postgres', password='1234')
-# add_new_client(conn, 'Ivan', 'Ivanov', 'ivanov@gmail.com', '89091324321')
-# add_new_client(conn, 'Petr', 'Petrov', 'petrov@gmail.com')
-# add_phone_number(conn, 'Petr', 'Petrov', '89241724365')
-# change_client_data(conn, 'Petr', 'Petrov', 'petrov@gmail.com', '89241724365')
 
 # with conn:
 #     with conn.cursor() as cur:
@@ -129,6 +185,10 @@ conn = psycopg2.connect(database='personal_data', user='postgres', password='123
 #         cur.execute("DROP TABLE phone_numbers CASCADE")
 # create_tables(conn)
 
-# Petya Petrov 228@gmail.com 2281488
-
-# print('Petya Petrov 228@gmail.com 2281488'.split())
+# add_new_client(conn, 'Ivan', 'Ivanov', 'ivanov@gmail.com', '89091324321')
+# add_new_client(conn, 'Petr', 'Petrov', 'petrov@gmail.com')
+# add_phone_number(conn, 'Petr', 'Petrov', '89241724365')
+# change_client_data(conn, 'Petr', 'Petrov', 'petrov@gmail.com', '89241724365')
+# del_phone_number(conn, '+79146351212')
+# del_client(conn, 'Petr', 'Petrov', 'petroff@gmail.com')
+# search_client(conn, 'Ivan')
