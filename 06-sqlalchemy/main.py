@@ -22,14 +22,13 @@ def upload_to_db(session):
         session.commit()
 
 
-DSN = 'postgresql://postgres:1234@localhost:5432/book_catalog'
 DSN = f'postgresql://{USER}:{PASSWORD}@localhost:5432/book_catalog'
 engine = sq.create_engine(DSN)
 Session = sessionmaker(bind=engine)
 session = Session()
 
 if __name__ == '__main__':
-    # del_tables(engine)
+    del_tables(engine)
 
     create_tables(engine)
     upload_to_db(session)
