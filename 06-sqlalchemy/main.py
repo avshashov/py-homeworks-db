@@ -28,7 +28,7 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 if __name__ == '__main__':
-    del_tables(engine)
+    # del_tables(engine)
 
     create_tables(engine)
     upload_to_db(session)
